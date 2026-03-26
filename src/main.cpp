@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <shader_s.h>
+#include <model_s.h>
 #include <quad_s.h>
 #include <cube_s.h>
 #include <table_s.h>
@@ -18,13 +19,13 @@
 #include <memory>
 #include <iostream>
 
-unsigned int loadTexture(std::string filename, GLenum image_type);
-void processInput(GLFWwindow *window, glm::mat4& view_dir, glm::mat4& view_loc, float& fov, float& near, float& far);
+void processInput(GLFWwindow *window, glm::mat4& view_dir, glm::mat4& view_loc, float& fov, float& n, float& f);
 glm::mat4 makePerspectiveMatrix(float fov, float aspect_ratio, float n, float f);
 void saveScreenshotToFile(std::string filename, GLFWwindow *window, int renderedTexture, int scr_width, int scr_height);
 
 int main(int argc, char *argv[])
 {
+    std::cout << "Compiled Successfully" << std::endl;
     // input handling
     // --------------------
     const unsigned int SCR_WIDTH = atoi(argv[1]);
@@ -94,48 +95,34 @@ int main(int argc, char *argv[])
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glGenerateMipmap(GL_TEXTURE_2D);
-    Shader post_shader("src/post_vert.vs", "src/post_frag.fs");
-    post_shader.use();
-    post_shader.setInt("scr_tex", 0);
+    unsigned int post_shader = create_shader("src/post_vert.vs", "src/post_frag.fs");
+    glUseProgram(post_shader);
+    shader_set_int(post_shader, "scr_tex", 0);
 
     Quad screen_quad = Quad();
 
     // scene setup (only section (aside from render loop) you should be touching)
     // --------------------
-    // texture generation
-    unsigned int texture1 = loadTexture("textures/container.jpg", GL_RGB);
-    unsigned int texture2 = loadTexture("textures/guy.png", GL_RGBA);
-    unsigned int texture3 = loadTexture("textures/krait.png", GL_RGBA);
-    unsigned int texture4 = loadTexture("textures/end_times.png", GL_RGBA);
 
     // shader generation
-    Shader ourShader("src/shader_vert.vs", "src/shader_frag.fs"); // you can name your shader files however you like
+    unsigned int main_shader = create_shader("src/shader_vert.vs", "src/shader_frag.fs"); // you can name your shader files however you like
 
-    // scene object(s) initialization
-    Table table = Table();
-    Cube cube = Cube();
+    // load models
+    // -----------
+    //load_model("models/teapot.obj");
 
     // rendering matricies setup
     // --------------------
     // create fov for perspective matrix calculation
     float perspective_fov = 0.785f; // modify for different zoom levels
-    float near = 0.1f; // near plane z
-    float far = 100.f; // far plane z
+    float n = 0.1f; // near plane z
+    float f = 100.f; // far plane z
 
     // seperate view matrix components to allow for camera movement and rotation
     glm::mat4 view_dir = glm::mat4(1.0f);
     glm::mat4 view_loc = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f));
 
     glm::mat4 model = glm::mat4(1.0f);
-    glm::mat4 table1_model = glm::translate(model, glm::vec3(0,-1.25,0));
-    glm::mat4 cube1_model = glm::translate(model, glm::vec3(-0.5, 0, 0));
-    cube1_model = glm::scale(cube1_model, glm::vec3(0.25));
-    glm::mat4 cube2_model = glm::translate(model, glm::vec3(0.5,0.25,-0.25));
-    cube2_model = glm::rotate(cube2_model, -0.4f, glm::vec3(0,1,0));
-    cube2_model = glm::scale(cube2_model, glm::vec3(0.4, 0.5, 0.1));
-    glm::mat4 cube3_model = glm::translate(model, glm::vec3(0.55,-0.15,0.75));
-    cube3_model = glm::rotate(cube3_model, 0.3f, glm::vec3(0,1,0));
-    cube3_model = glm::scale(cube3_model, glm::vec3(0.4, 0.1, 0.2));
 
     // render loop
     // --------------------
@@ -143,7 +130,7 @@ int main(int argc, char *argv[])
     {
         // input processing
         // --------------------
-        processInput(window, view_dir, view_loc, perspective_fov, near, far);
+        processInput(window, view_dir, view_loc, perspective_fov, n, f);
         saveScreenshotToFile(SCR_SHOT_PATH, window, renderedTexture, SCR_SHOT_WIDTH, SCR_SHOT_HEIGHT);
         if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // toggle wireframe
@@ -152,9 +139,11 @@ int main(int argc, char *argv[])
 
         // render to texture
         // --------------------
-        ourShader.use();
-        ourShader.setMat4("view", view_dir * view_loc);
-        ourShader.setMat4("perspective", makePerspectiveMatrix(perspective_fov, (float)SCR_WIDTH / (float)SCR_HEIGHT, near, far)); 
+        glUseProgram(main_shader);
+	glm::mat4 view = view_dir * view_loc;
+	shader_set_mat4(main_shader, "view", (GLfloat *)&view);
+	glm::mat4 perspective = makePerspectiveMatrix(perspective_fov, (float)SCR_WIDTH / (float)SCR_HEIGHT, n, f);
+	shader_set_mat4(main_shader, "perspective", (GLfloat *)&perspective);
 
         glViewport(0, 0, SCR_SHOT_WIDTH, SCR_SHOT_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
@@ -162,25 +151,17 @@ int main(int argc, char *argv[])
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glBindTexture(GL_TEXTURE_2D, texture1);
-        ourShader.setMat4("model", table1_model);
-        table.render();
-        glBindTexture(GL_TEXTURE_2D, texture2);
-        ourShader.setMat4("model", cube1_model);
-        cube.render();
-        glBindTexture(GL_TEXTURE_2D, texture3);
-        ourShader.setMat4("model", cube2_model);
-        cube.render();
-        glBindTexture(GL_TEXTURE_2D, texture4);
-        ourShader.setMat4("model", cube3_model);
-        cube.render();
+	glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
+	shader_set_mat4(main_shader, "model", (GLfloat *)&model);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // disable wireframe
 
         // render to screen
         // --------------------
         glBindTexture(GL_TEXTURE_2D, renderedTexture);
-        post_shader.use();
+        glUseProgram(post_shader);
 
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -197,38 +178,12 @@ int main(int argc, char *argv[])
     }
 
     screen_quad.deallocate();
-    table.deallocate();
-    cube.deallocate();
 
     glfwTerminate();
     return 0;
 }
 
-unsigned int loadTexture(std::string filename, GLenum image_type) {
-    unsigned int tex_id;
-    glGenTextures(1, &tex_id);
-    glBindTexture(GL_TEXTURE_2D, tex_id); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    int width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrChannels, 0);
-    if (data)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, image_type, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else
-    {
-        std::cout << "Failed to load texture: " << filename << std::endl;
-    }
-    stbi_image_free(data);
-    return tex_id;
-}
-
-void processInput(GLFWwindow *window, glm::mat4& view_dir, glm::mat4& view_loc, float& fov, float& near, float& far)
+void processInput(GLFWwindow *window, glm::mat4& view_dir, glm::mat4& view_loc, float& fov, float& n, float& f)
 {
     float spd = 0.0005f;
 
@@ -278,13 +233,13 @@ void processInput(GLFWwindow *window, glm::mat4& view_dir, glm::mat4& view_loc, 
         fov = 0.785f;
     // near and far plane distances
     if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS)
-        near -= spd;
+        n -= spd;
     if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
-        near += spd;
+        n += spd;
     if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)
-        far -= 10 * spd;
+        f -= 10 * spd;
     if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS)
-        far += 10 * spd;
+        f += 10 * spd;
 }
 
 // recreation of glm's perspective matrix with (l, r, b, t) inputs
