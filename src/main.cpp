@@ -109,7 +109,9 @@ int main(int argc, char *argv[])
 
     // load models
     // -----------
-    //load_model("models/teapot.obj");
+    std::cout << "ligma" << std::endl;
+    load_model("models/teapot.obj");
+    std::cout << "balls" << std::endl;
 
     // rendering matricies setup
     // --------------------

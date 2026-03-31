@@ -82,18 +82,23 @@ void load_material(Tex* textures, unsigned int* offset, aiMaterial* mat, aiTextu
 }
 
 void release_mesh(Mesh* m) {
+	printf("2_0\n");
 	glDeleteVertexArrays(1, &(m->VAO));
 	glDeleteBuffers(1, &(m->VBO));
 	glDeleteBuffers(1, &(m->EBO));
+	printf("2_1\n");
 	free(m->vertices);
+	printf("2_2\n");
 	free(m->indices);
+	printf("2_3\n");
 	free(m->textures);
-	free(m);
+	printf("2_4\n");
 }
 
-Mesh* load_mesh(aiMesh* m, aiScene* scene) {
-	Mesh* mesh = (Mesh*)malloc(sizeof(Mesh));
+Mesh* load_mesh(aiMesh* m, const aiScene* scene) {
+	Mesh* mesh;
 	mesh->vertices = (Vertex*)malloc(m->mNumVertices * sizeof(Vertex));
+	printf("0_1_0 | %u\n", m->mNumVertices);
 	if(m->mTextureCoords[0]) {
 		for(unsigned int i = 0; i < m->mNumVertices; i++) {
 			mesh->vertices[i] = {
@@ -130,6 +135,7 @@ Mesh* load_mesh(aiMesh* m, aiScene* scene) {
 			};
 		}
 	}
+	printf("0_1_1\n");
 
 	unsigned int indices_size = 0;
 	for(unsigned int i = 0; i < m->mNumFaces; i++) {
@@ -145,15 +151,19 @@ Mesh* load_mesh(aiMesh* m, aiScene* scene) {
 			indice_i++;
 		}
 	}
+	printf("0_1_2\n");
 	char diff[] = "texture_diffuse";
 	char spec[] = "texture_specular";
-	if(m->mMaterialIndex >= 0) {
+	/*if(m->mMaterialIndex >= 0) {
 		aiMaterial* mat = scene->mMaterials[m->mMaterialIndex];
+		unsigned int tex_count = 2 * (aiGetMaterialTextureCount(mat, aiTextureType_DIFFUSE) - 1);
+		mesh->num_textures = tex_count + 1;
+		mesh->textures = (Tex*)malloc(tex_count * sizeof(Tex));
 		unsigned int tex_i = 0;
 		load_material(mesh->textures, &tex_i, mat, aiTextureType_DIFFUSE, diff);
 		load_material(mesh->textures, &tex_i, mat, aiTextureType_DIFFUSE, spec);
-		mesh->num_textures = tex_i + 1;
-	}
+	}*/
+	printf("0_1_3\n");
 
 	glGenVertexArrays(1, &(mesh->VAO));
 	glGenBuffers(1, &(mesh->VBO));
@@ -164,6 +174,7 @@ Mesh* load_mesh(aiMesh* m, aiScene* scene) {
 	glBufferData(GL_ARRAY_BUFFER, m->mNumVertices, mesh->vertices, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->EBO);
 	glBufferData(GL_ARRAY_BUFFER, indices_size, mesh->indices, GL_STATIC_DRAW);
+	printf("0_1_4\n");
 
 	// position
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
@@ -175,10 +186,9 @@ Mesh* load_mesh(aiMesh* m, aiScene* scene) {
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float)));
 	glEnableVertexAttribArray(2);
 	glBindVertexArray(0);
+	printf("0_1_5\n");
 	
-	//return mesh;
-	release_mesh(mesh); // remove once done testing
-	return NULL;
+	return mesh;
 }
 
 void render_mesh(Mesh m, unsigned int shader) {
@@ -210,16 +220,48 @@ void render_mesh(Mesh m, unsigned int shader) {
 }
 
 typedef struct Model {
-	Mesh** meshes;
+	Mesh** meshes_p;
 	unsigned int size;
 } Model;
 
 void release_model(Model* m) {
+	printf("1_0\n");
 	for(unsigned int i = 0; i < m->size; i++) {
-		release_mesh(m->meshes[i]);
+		printf("1_1\n");
+		release_mesh(m->meshes_p[i]);
+		printf("1_2\n");
 	}
-	free(m->meshes);
+	printf("1_3\n");
+	free(m->meshes_p);
+	printf("1_4\n");
 	free(m);
+	printf("1_5\n");
+}
+
+unsigned int model_get_num_nodes(aiNode* root) {
+	unsigned int result = 1;
+	for(unsigned int i = 0; i < root->mNumChildren; i++) {
+		result += model_get_num_nodes(root->mChildren[i]);
+	}
+	return result;
+}
+
+void load_model_node(Mesh** meshes_p, unsigned int* meshes_i, unsigned int meshes_size, aiNode* node, const aiScene* scene) {
+	printf("0\n");
+	for(unsigned int i = 0; i < node->mNumMeshes; i++) {
+		printf("0_0\n");
+		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+		printf("0_1 | %u/%u\n", *meshes_i + 1, meshes_size);
+		meshes_p[*meshes_i] = load_mesh(mesh, scene);
+		printf("0_2\n");
+		(*meshes_i)++;
+		printf("0_3\n");
+	}
+	for(unsigned int i = 0; i < node->mNumChildren; i++) {
+		printf("0_4\n");
+		load_model_node(meshes_p, meshes_i, meshes_size, node->mChildren[i], scene);
+	}
+	printf("0_5\n");
 }
 
 Model* load_model(char* filepath) {
@@ -236,17 +278,23 @@ Model* load_model(char* filepath) {
 		return NULL;
 	}
 	Model* mod = (Model*)malloc(sizeof(Model));
-	mod->size = 0;
-	mod->meshes = (Mesh**)malloc(sizeof(Mesh) * 10);
+	mod->size = model_get_num_nodes(scene->mRootNode);
+	mod->meshes_p = (Mesh**)malloc(sizeof(Mesh*) * (mod->size - 1));
+	printf("a : %u\n", mod->size);
+	unsigned int meshes_i = 0;
+	load_model_node(mod->meshes_p, &meshes_i, mod->size, scene->mRootNode, scene);
+	printf("b\n");
 	
 	aiReleaseImport(scene);
-	//return mod;
+	printf("c\n");
 	release_model(mod);
+	printf("d\n");
 	return NULL;
+	//return mod;
 }
 
 void render_model(Model m, unsigned int shader) {
 	for(unsigned int i = 0; i < m.size; i++) {
-		render_mesh(*(m.meshes[i]), shader);
+		render_mesh(*(m.meshes_p[i]), shader);
 	}
 }
