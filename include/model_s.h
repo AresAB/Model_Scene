@@ -55,7 +55,7 @@ typedef struct Mesh {
 } Mesh;
 
 typedef struct Model {
-	Model** pa_meshes;
+	Mesh** pa_meshes;
 	unsigned int size;
 } Model;
 
@@ -83,14 +83,14 @@ Mesh* load_mesh(FILE* file, unsigned int beg_i, unsigned int end_i) {
 			}
 			if(ftell(file) != end_i) fseek(file,-1,SEEK_CUR);
 		}
-		else {
+		else if(c_read != '\n') {
 			fgets(str_read,100,file);
 		}
 	}
 	Mesh* new_m = (Mesh*)malloc(sizeof(Mesh));
-	new_m->vertices = (Vertex*)malloc(sizeof(Vertex) * v_size);
+	new_m->vertices = (Vertex*)calloc(v_size, sizeof(Vertex));
 	new_m->indices = (unsigned int*)malloc(sizeof(unsigned int) * i_size * 3);
-	new_m->num_indices = i_size;
+	new_m->num_indices = i_size * 3;
 
 	rewind(file);
 	while(ftell(file) != end_i) {
@@ -108,8 +108,7 @@ Mesh* load_mesh(FILE* file, unsigned int beg_i, unsigned int end_i) {
 						str_i++;
 						c_read = fgetc(file);
 					}
-					str_read[str_i+1] = '\0';
-					// this actually has some error in conversion (+/- 0.000001), not sure if it really matters but worth noting
+					str_read[str_i] = '\0';
 					v_pos[j] = (float)atof(str_read);
 				}
 			}
@@ -118,34 +117,98 @@ Mesh* load_mesh(FILE* file, unsigned int beg_i, unsigned int end_i) {
 			fseek(file, -1, SEEK_CUR);
 			for(unsigned int i = 0; i < i_size; i++) {
 				fseek(file, 2, SEEK_CUR);
-				fgets(str_read,100,file);
-				// put logic here
+				for(unsigned int j = 0; j < 3; j++) {
+					unsigned int str_i = 0;
+					c_read = fgetc(file);
+					while(c_read != ' ' && c_read != '\n') {	
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					new_m->indices[i*3+j] = atoi(str_read) - 1;
+				}
 			}
 		}
-		else {
+		else if(c_read != '\n') {
 			fgets(str_read,100,file);
 		}
 	}
 	free(str_read);
 
+	/*for(unsigned int i = 0; i < v_size; i++) {
+		printf("p: (%f, %f, %f), n: (%f, %f, %f), uv: (%f, %f)\n", new_m->vertices[i].position.x, new_m->vertices[i].position.y, new_m->vertices[i].position.z, new_m->vertices[i].normal.x, new_m->vertices[i].normal.y, new_m->vertices[i].tex_u, new_m->vertices[i].tex_v);
+	}*/
+	/*for(unsigned int i = 0; i < i_size; i++) {
+		printf("f: (%u, %u, %u)\n", new_m->indices[3*i], new_m->indices[3*i+1], new_m->indices[3*i+2]);
+	}*/
+
+    	glGenVertexArrays(1, &new_m->VAO);
+    	glGenBuffers(1, &new_m->VBO);
+    	glGenBuffers(1, &new_m->EBO);
+
+    	glBindVertexArray(new_m->VAO);
+
+    	glBindBuffer(GL_ARRAY_BUFFER, new_m->VBO);
+    	glBufferData(GL_ARRAY_BUFFER, v_size * sizeof(Vertex), new_m->vertices, GL_STATIC_DRAW);
+
+    	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, new_m->EBO);
+    	glBufferData(GL_ELEMENT_ARRAY_BUFFER, i_size * 3 * sizeof(unsigned int), new_m->indices, GL_STATIC_DRAW);
+
+    	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+    	glEnableVertexAttribArray(0);
+    
+    	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(sizeof(Vec3)));
+    	glEnableVertexAttribArray(1);
+
+    	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(sizeof(Vec3) * 2));
+    	glEnableVertexAttribArray(2);
+
 	return new_m;
+}
+
+void render_mesh(Mesh* m) {
+	glBindVertexArray(m->VAO);
+	glDrawElements(GL_TRIANGLES, m->num_indices, GL_UNSIGNED_INT, 0);
 }
 
 void free_mesh(Mesh* m) {
 	free(m->vertices);
 	free(m->indices);
+	glDeleteVertexArrays(1, &m->VAO);
+	glDeleteBuffers(1, &m->VBO);
+	glDeleteBuffers(1, &m->EBO);
 	free(m);
 }
 
-void load_model(const char* filename) {
+Model* load_model(const char* filename) {
 	FILE* file = fopen(filename, "r");
 	unsigned int region_end_i;
 	
 	fseek(file, 0, SEEK_END);
 	region_end_i = ftell(file);
 	rewind(file);
+	
+	Model* new_m = (Model*)malloc(sizeof(Model));
+	new_m->pa_meshes = (Mesh**)malloc(sizeof(Mesh*));
+	new_m->size = 1;
 
-	free_mesh(load_mesh(file, 0, region_end_i));
+	new_m->pa_meshes[0] = load_mesh(file, 0, region_end_i);
 
 	fclose(file);
+
+	return new_m;
+}
+
+void render_model(Model* m) {
+	for(unsigned int i = 0; i < m->size; i++) {
+		render_mesh(m->pa_meshes[i]);
+	}
+}
+
+void free_model(Model* m) {
+	for(unsigned int i = 0; i < m->size; i++) {
+		free_mesh(m->pa_meshes[i]);
+	}
+	free(m);
 }

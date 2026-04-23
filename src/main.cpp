@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     // load models
     // -----------
     std::cout << "ligma" << std::endl;
-    load_model("models/teapot.obj");
+    Model* model1 = load_model("models/ball.obj");
     std::cout << "balls" << std::endl;
 
     // rendering matricies setup
@@ -124,7 +124,6 @@ int main(int argc, char *argv[])
     glm::mat4 view_dir = glm::mat4(1.0f);
     glm::mat4 view_loc = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f));
 
-    glm::mat4 model = glm::mat4(1.0f);
 
     // render loop
     // --------------------
@@ -154,9 +153,10 @@ int main(int argc, char *argv[])
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
+        //model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(.01f, .01f, .01f));
 	shader_set_mat4(main_shader, "model", (GLfloat *)&model);
+	render_model(model1);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // disable wireframe
 
@@ -179,7 +179,11 @@ int main(int argc, char *argv[])
         glfwPollEvents();
     }
 
+
     screen_quad.deallocate();
+    std::cout << "sugma" << std::endl;
+    free_model(model1);
+    std::cout << "nuts" << std::endl;
 
     glfwTerminate();
     return 0;
