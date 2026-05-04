@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     // load models
     // -----------
     std::cout << "ligma" << std::endl;
-    Model* model1 = load_model("models/ball12.obj");
+    Model* model1 = load_model("models/ball_quad12.obj");
     std::cout << "balls" << std::endl;
 
     // rendering matricies setup

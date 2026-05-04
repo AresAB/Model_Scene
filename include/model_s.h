@@ -92,19 +92,35 @@ void load_vertices_minimal(Mesh* new_m, FILE* file, unsigned int end_i, char* st
 		}
 		if(c_read == 'f') {
 			fseek(file, -1, SEEK_CUR);
+			unsigned int indice_i = 0;
 			for(unsigned int i = 0; i < i_size; i++) {
 				fseek(file, 2, SEEK_CUR);
 				for(unsigned int j = 0; j < 3; j++) {
 					unsigned int str_i = 0;
 					c_read = fgetc(file);
-					while(c_read != ' ' && c_read != '\n') {	
+					while(c_read != ' ' && c_read != '\n' && ftell(file) != end_i) {	
 						str_read[str_i] = c_read;
 						str_i++;
 						c_read = fgetc(file);
 					}
 					str_read[str_i] = '\0';
-					new_m->indices[i*3+j] = atoi(str_read) - 1;
+					new_m->indices[indice_i*3+j] = atoi(str_read) - 1;
 				}
+				if(c_read == ' ') {
+					indice_i++;
+					unsigned int str_i = 0;
+					c_read = fgetc(file);
+					while(c_read != '\n' && ftell(file) != end_i) {
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					new_m->indices[indice_i*3] = new_m->indices[(indice_i-1)*3];
+					new_m->indices[indice_i*3 + 1] = new_m->indices[(indice_i-1)*3 + 2];
+					new_m->indices[indice_i*3 + 2] = atoi(str_read) - 1;
+				}
+				indice_i++;
 			}
 		}
 		else if(c_read != '\n') {
@@ -173,6 +189,7 @@ unsigned int load_vertices_texcoords(Mesh* new_m, FILE* file, unsigned int end_i
 		}
 		if(c_read == 'f') {
 			fseek(file, -1, SEEK_CUR);
+			unsigned int indice_i = 0;
 			for(unsigned int i = 0; i < i_size; i++) {
 				fseek(file, 2, SEEK_CUR);
 				for(unsigned int j = 0; j < 3; j++) {
@@ -187,7 +204,7 @@ unsigned int load_vertices_texcoords(Mesh* new_m, FILE* file, unsigned int end_i
 					unsigned int v_indice = atoi(str_read) - 1;
 					str_i = 0;
 					c_read = fgetc(file);
-					while(c_read != ' ' && c_read != '\n') {	
+					while(c_read != ' ' && c_read != '\n' && ftell(file) != end_i) {	
 						str_read[str_i] = c_read;
 						str_i++;
 						c_read = fgetc(file);
@@ -217,8 +234,56 @@ unsigned int load_vertices_texcoords(Mesh* new_m, FILE* file, unsigned int end_i
 						new_v_size++;
 						indice = new_v_size;
 					}
-					new_m->indices[i*3+j] = indice - 1;
+					new_m->indices[indice_i*3+j] = indice - 1;
 				}
+				if(c_read == ' ') {
+					indice_i++;
+					unsigned int str_i = 0;
+					c_read = fgetc(file);
+					while(c_read != '/') {	
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					unsigned int v_indice = atoi(str_read) - 1;
+					str_i = 0;
+					c_read = fgetc(file);
+					while(c_read != '\n' && ftell(file) != end_i) {	
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					unsigned int vt_indice = atoi(str_read) - 1;
+					unsigned int indice = 0;
+					unsigned int s = vert_pa[v_indice][0].i;
+					if(s == 0) {
+						vert_pa[v_indice][0].v.texcoords = texcoords[vt_indice];
+						vert_pa[v_indice][0].i++;
+						indice = v_indice + 1;
+					}
+					for(unsigned int k = 0; k < s; k++) {
+						if(vert_pa[v_indice][k].v.texcoords.x == texcoords[vt_indice].x && vert_pa[v_indice][k].v.texcoords.y == texcoords[vt_indice].y) {
+							if(k == 0) indice = v_indice + 1;
+							else indice = vert_pa[v_indice][k].i + 1;
+							break;
+						}
+					}
+					if(indice == 0) {
+						vert_pa[v_indice][0].i++;
+						vert_pa[v_indice] = (IndicedVertex*)realloc((void*)(vert_pa[v_indice]), (s+1) * sizeof(IndicedVertex));
+						vert_pa[v_indice][s] = vert_pa[v_indice][0];
+						vert_pa[v_indice][s].v.texcoords = texcoords[vt_indice];
+						vert_pa[v_indice][s].i = new_v_size;
+						new_v_size++;
+						indice = new_v_size;
+					}
+					new_m->indices[indice_i*3] = new_m->indices[(indice_i-1)*3];
+					new_m->indices[indice_i*3 + 1] = new_m->indices[(indice_i-1)*3 + 2];
+					new_m->indices[indice_i*3 + 2] = indice - 1;
+				}
+				indice_i++;
 			}
 		}
 		else if(c_read != '\n') {
@@ -288,6 +353,7 @@ unsigned int load_vertices_normals(Mesh* new_m, FILE* file, unsigned int end_i, 
 		}
 		if(c_read == 'f') {
 			fseek(file, -1, SEEK_CUR);
+			unsigned int indice_i = 0;
 			for(unsigned int i = 0; i < i_size; i++) {
 				fseek(file, 2, SEEK_CUR);
 				for(unsigned int j = 0; j < 3; j++) {
@@ -303,7 +369,7 @@ unsigned int load_vertices_normals(Mesh* new_m, FILE* file, unsigned int end_i, 
 					str_i = 0;
 					c_read = fgetc(file);
 					c_read = fgetc(file);
-					while(c_read != ' ' && c_read != '\n') {	
+					while(c_read != ' ' && c_read != '\n' && ftell(file) != end_i) {	
 						str_read[str_i] = c_read;
 						str_i++;
 						c_read = fgetc(file);
@@ -333,8 +399,57 @@ unsigned int load_vertices_normals(Mesh* new_m, FILE* file, unsigned int end_i, 
 						new_v_size++;
 						indice = new_v_size;
 					}
-					new_m->indices[i*3+j] = indice - 1;
+					new_m->indices[indice_i*3+j] = indice - 1;
 				}
+				if(c_read == ' ') {
+					indice_i++;
+					unsigned int str_i = 0;
+					c_read = fgetc(file);
+					while(c_read != '/') {	
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					unsigned int v_indice = atoi(str_read) - 1;
+					str_i = 0;
+					c_read = fgetc(file);
+					c_read = fgetc(file);
+					while(c_read != '\n' && ftell(file) != end_i) {	
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					unsigned int vn_indice = atoi(str_read) - 1;
+					unsigned int indice = 0;
+					unsigned int s = vert_pa[v_indice][0].i;
+					if(s == 0) {
+						vert_pa[v_indice][0].v.normal = normals[vn_indice];
+						vert_pa[v_indice][0].i++;
+						indice = v_indice + 1;
+					}
+					for(unsigned int k = 0; k < s; k++) {
+						if(vert_pa[v_indice][k].v.normal.x == normals[vn_indice].x && vert_pa[v_indice][k].v.normal.y == normals[vn_indice].y && vert_pa[v_indice][k].v.normal.z == normals[vn_indice].z) {
+							if(k == 0) indice = v_indice + 1;
+							else indice = vert_pa[v_indice][k].i + 1;
+							break;
+						}
+					}
+					if(indice == 0) {
+						vert_pa[v_indice][0].i++;
+						vert_pa[v_indice] = (IndicedVertex*)realloc((void*)(vert_pa[v_indice]), (s+1) * sizeof(IndicedVertex));
+						vert_pa[v_indice][s] = vert_pa[v_indice][0];
+						vert_pa[v_indice][s].v.normal = normals[vn_indice];
+						vert_pa[v_indice][s].i = new_v_size;
+						new_v_size++;
+						indice = new_v_size;
+					}
+					new_m->indices[indice_i*3] = new_m->indices[(indice_i-1)*3];
+					new_m->indices[indice_i*3 + 1] = new_m->indices[(indice_i-1)*3 + 2];
+					new_m->indices[indice_i*3 + 2] = indice_i - 1;
+				}
+				indice_i++;
 			}
 		}
 		else if(c_read != '\n') {
@@ -424,6 +539,7 @@ unsigned int load_vertices(Mesh* new_m, FILE* file, unsigned int end_i, char* st
 		}
 		if(c_read == 'f') {
 			fseek(file, -1, SEEK_CUR);
+			unsigned int indice_i = 0;
 			for(unsigned int i = 0; i < i_size; i++) {
 				fseek(file, 2, SEEK_CUR);
 				for(unsigned int j = 0; j < 3; j++) {
@@ -447,7 +563,7 @@ unsigned int load_vertices(Mesh* new_m, FILE* file, unsigned int end_i, char* st
 					unsigned int vt_indice = atoi(str_read) - 1;
 					str_i = 0;
 					c_read = fgetc(file);
-					while(c_read != ' ' && c_read != '\n') {	
+					while(c_read != ' ' && c_read != '\n' && ftell(file) != end_i) {	
 						str_read[str_i] = c_read;
 						str_i++;
 						c_read = fgetc(file);
@@ -479,8 +595,67 @@ unsigned int load_vertices(Mesh* new_m, FILE* file, unsigned int end_i, char* st
 						new_v_size++;
 						indice = new_v_size;
 					}
-					new_m->indices[i*3+j] = indice - 1;
+					new_m->indices[indice_i*3+j] = indice - 1;
 				}
+				if(c_read == ' ') {
+					indice_i++;
+					unsigned int str_i = 0;
+					c_read = fgetc(file);
+					while(c_read != '/') {	
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					unsigned int v_indice = atoi(str_read) - 1;
+					str_i = 0;
+					c_read = fgetc(file);
+					while(c_read != '/') {	
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					unsigned int vt_indice = atoi(str_read) - 1;
+					str_i = 0;
+					c_read = fgetc(file);
+					while(c_read != '\n' && ftell(file) != end_i) {	
+						str_read[str_i] = c_read;
+						str_i++;
+						c_read = fgetc(file);
+					}
+					str_read[str_i] = '\0';
+					unsigned int vn_indice = atoi(str_read) - 1;
+					unsigned int indice = 0;
+					unsigned int s = vert_pa[v_indice][0].i;
+					if(s == 0) {
+						vert_pa[v_indice][0].v.normal = normals[vn_indice];
+						vert_pa[v_indice][0].v.texcoords = texcoords[vt_indice];
+						vert_pa[v_indice][0].i++;
+						indice = v_indice + 1;
+					}
+					for(unsigned int k = 0; k < s; k++) {
+						if(vert_pa[v_indice][k].v.texcoords.x == texcoords[vt_indice].x && vert_pa[v_indice][k].v.texcoords.y == texcoords[vt_indice].y && vert_pa[v_indice][k].v.normal.x == normals[vn_indice].x && vert_pa[v_indice][k].v.normal.y == normals[vn_indice].y && vert_pa[v_indice][k].v.normal.z == normals[vn_indice].z) {
+							if(k == 0) indice = v_indice + 1;
+							else indice = vert_pa[v_indice][k].i + 1;
+							break;
+						}
+					}
+					if(indice == 0) {
+						vert_pa[v_indice][0].i++;
+						vert_pa[v_indice] = (IndicedVertex*)realloc((void*)(vert_pa[v_indice]), (s+1) * sizeof(IndicedVertex));
+						vert_pa[v_indice][s] = vert_pa[v_indice][0];
+						vert_pa[v_indice][s].v.texcoords = texcoords[vt_indice];
+						vert_pa[v_indice][s].v.normal = normals[vn_indice];
+						vert_pa[v_indice][s].i = new_v_size;
+						new_v_size++;
+						indice = new_v_size;
+					}
+					new_m->indices[indice_i*3] = new_m->indices[(indice_i-1)*3];
+					new_m->indices[indice_i*3 + 1] = new_m->indices[(indice_i-1)*3 + 2];
+					new_m->indices[indice_i*3 + 2] = indice - 1;
+				}
+				indice_i++;
 			}
 		}
 		else if(c_read != '\n') {
@@ -506,6 +681,7 @@ Mesh* load_mesh(FILE* file, unsigned int beg_i, unsigned int end_i) {
 	unsigned int vn_size = 0;
 	unsigned int vt_size = 0;
 	unsigned int i_size = 0;
+	unsigned int new_i_size = 0;
 	fseek(file, beg_i, SEEK_SET);
 	char* str_read = (char*)malloc(sizeof(char) * 100);
 	while(ftell(file) != end_i) {
@@ -544,7 +720,17 @@ Mesh* load_mesh(FILE* file, unsigned int beg_i, unsigned int end_i) {
 		if(c_read == 'f') {
 			while(c_read == 'f') {
 				i_size++;
-				fgets(str_read,100,file);
+				unsigned int count = 0;
+				while(c_read != '\n' && ftell(file) != end_i) {
+					c_read = fgetc(file);
+					if(c_read == ' ') count++;
+				}
+				if(count == 4) new_i_size++;
+				else if(count > 4) {
+					free(str_read);
+					printf("ERROR: mesh has n-polygons larger than quads\n");
+					return (Mesh*)NULL;
+				}
 				if(ftell(file) == end_i) break;
 				c_read = fgetc(file);
 			}
@@ -554,9 +740,10 @@ Mesh* load_mesh(FILE* file, unsigned int beg_i, unsigned int end_i) {
 			fgets(str_read,100,file);
 		}
 	}
+	new_i_size += i_size;
 	Mesh* new_m = (Mesh*)malloc(sizeof(Mesh));
-	new_m->indices = (unsigned int*)malloc(sizeof(unsigned int) * i_size * 3);
-	new_m->num_indices = i_size * 3;
+	new_m->indices = (unsigned int*)malloc(sizeof(unsigned int) * new_i_size * 3);
+	new_m->num_indices = new_i_size * 3;
 
 	fseek(file, beg_i, SEEK_SET);
 	if(vt_size == 0 && vn_size == 0) {
@@ -586,7 +773,7 @@ Mesh* load_mesh(FILE* file, unsigned int beg_i, unsigned int end_i) {
     	glBufferData(GL_ARRAY_BUFFER, v_size * sizeof(Vertex), new_m->vertices, GL_STATIC_DRAW);
 
     	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, new_m->EBO);
-    	glBufferData(GL_ELEMENT_ARRAY_BUFFER, i_size * 3 * sizeof(unsigned int), new_m->indices, GL_STATIC_DRAW);
+    	glBufferData(GL_ELEMENT_ARRAY_BUFFER, new_i_size * 3 * sizeof(unsigned int), new_m->indices, GL_STATIC_DRAW);
 
     	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
     	glEnableVertexAttribArray(0);
