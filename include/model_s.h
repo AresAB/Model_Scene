@@ -127,6 +127,33 @@ void load_vertices_minimal(Mesh* new_m, FILE* file, unsigned int end_i, char* st
 			fgets(str_read,100,file);
 		}
 	}
+	for(unsigned int i = 0; i < v_size; i++) {
+		Vec3 sum = {0, 0, 0};
+		float num = 0;
+		for(unsigned int j = 0; j < i_size; j++) {
+			if(new_m->indices[3*j] == i || new_m->indices[3*j+1] == i || new_m->indices[3*j+2] == i) {
+				Vec3 a = new_m->vertices[new_m->indices[3*j]].position;
+				Vec3 ab = new_m->vertices[new_m->indices[3*j+1]].position;
+				ab.x -= a.x;
+				ab.y -= a.y;
+				ab.z -= a.z;
+				Vec3 ac = new_m->vertices[new_m->indices[3*j+2]].position;
+				ac.x -= a.x;
+				ac.y -= a.y;
+				ac.z -= a.z;
+				sum.x += ab.y * ac.z - ab.z * ac.y;
+				sum.y -= ab.x * ac.z - ab.z * ac.x;
+				sum.z += ab.x * ac.y - ab.y * ac.x;
+				num++;
+			}
+		}
+		if(num != 0) {
+			sum.x / num;
+			sum.y / num;
+			sum.z / num;
+			new_m->vertices[i].normal = sum;
+		}
+	}
 }
 
 unsigned int load_vertices_texcoords(Mesh* new_m, FILE* file, unsigned int end_i, char* str_read, unsigned int v_size, unsigned int vt_size, unsigned int i_size) {
@@ -300,6 +327,33 @@ unsigned int load_vertices_texcoords(Mesh* new_m, FILE* file, unsigned int end_i
 		free(vert_pa[i]);
 	}
 	free(vert_pa);
+	for(unsigned int i = 0; i < new_v_size; i++) {
+		Vec3 sum = {0, 0, 0};
+		float num = 0;
+		for(unsigned int j = 0; j < i_size; j++) {
+			if(new_m->indices[3*j] == i || new_m->indices[3*j+1] == i || new_m->indices[3*j+2] == i) {
+				Vec3 a = new_m->vertices[new_m->indices[3*j]].position;
+				Vec3 ab = new_m->vertices[new_m->indices[3*j+1]].position;
+				ab.x -= a.x;
+				ab.y -= a.y;
+				ab.z -= a.z;
+				Vec3 ac = new_m->vertices[new_m->indices[3*j+2]].position;
+				ac.x -= a.x;
+				ac.y -= a.y;
+				ac.z -= a.z;
+				sum.x += ab.y * ac.z - ab.z * ac.y;
+				sum.y -= ab.x * ac.z - ab.z * ac.x;
+				sum.z += ab.x * ac.y - ab.y * ac.x;
+				num++;
+			}
+		}
+		if(num != 0) {
+			sum.x / num;
+			sum.y / num;
+			sum.z / num;
+			new_m->vertices[i].normal = sum;
+		}
+	}
 	return new_v_size;
 }
 
