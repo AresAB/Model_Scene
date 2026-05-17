@@ -110,7 +110,11 @@ int main(int argc, char *argv[])
     // load models
     // -----------
     std::cout << "ligma" << std::endl;
-    Model* model1 = load_model("models/ball_quad12.obj");
+    //Model* model1 = load_model("models/single_mtl_group.obj");
+    //Model* model1 = load_model("models/multi_group.obj");
+    //Model* model1 = load_model("models/multi_mat.obj");
+    //Model* model1 = load_model("models/ball12.obj");
+    Model* model1 = load_model("models/teapot.obj");
     std::cout << "balls" << std::endl;
 
     // rendering matricies setup
@@ -154,7 +158,7 @@ int main(int argc, char *argv[])
 
 	glm::mat4 model = glm::mat4(1.0f);
         //model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(.01f, .01f, .01f));
+        //model = glm::scale(model, glm::vec3(.01f, .01f, .01f));
 	shader_set_mat4(main_shader, "model", (GLfloat *)&model);
 	render_model(model1);
 
